@@ -7,7 +7,7 @@ import sqlite3 #Importiert das Modul für die SQLite-Datenbankverwaltung
 import tkinter as tk #Importiert das Tkinter-Modul. Ist für die Erstellung der grafischen Benutzoberfläche also für die GUI unter dem Kürzel 'tk' 
 from tkinter import messagebox #importiert die messagebox-untermodul von Tkinter, damit man Pop-up Meldungen wie Hinweise und Fehler anzuzeigen
 
-#1. DATENBANK INITIALISIERUNG
+
 def datenbank_einrichten():
     connection = sqlite3.connect("streaming.db")#Verbindung zur SQL-Datenbankdatei "streaming.db"
     cursor = connection.cursor() #Ein cursor Objekt wird erstellt um SQL- Befehle auszuführen
@@ -27,20 +27,26 @@ def datenbank_einrichten():
 
     """)
 
+    # NEU: Fügt die Abo-Spalte hinzu, falls sie in einer alten Datenbankdatei noch fehlt
+    try:
+        cursor.execute("ALTER TABLE Nutzer ADD COLUMN Abo TEXT DEFAULT 'Basis';")
+    except sqlite3.OperationalError:
+        pass # Spalte existiert schon, alles super!
+
     connection.commit() #Speichert die Änderungen dauerhaft in der Datenbank ab
 
     connection.close() #Schließt die Verbindung zu Datenbank
+
+#2. GUI ENTWICKLUNG einfaches Tkinter-Fenster
  
-datenbank_einrichten() #Ruft die Einrichtung direkt beim Start auf
- 
- 
+
 def hole_alle_nutzer():
     #Verbindung öffnen, Daten holen, Verbindung schließen
     connection = sqlite3.connect("streaming.db")
     cursor = connection.cursor() #Erstellt ein Cursor-Objekt, damit man SQL-Befehle auf der Datenbank ausführen kannst
 
-    #FÜhrt einen SQL-Befehl aus, um die Spalten "Nutzername" und "E_Mail" aus der Tabelle "Nutzer" zu lesen
-    cursor.execute("SELECT Nutzername, E_Mail FROM Nutzer;")
+    # FÜhrt einen SQL-Befehl aus, um die Spalten "Nutzername", "E_Mail" und "Abo" aus der Tabelle "Nutzer" zu lesen
+    cursor.execute("SELECT Nutzername, E_Mail, Abo FROM Nutzer;")
 
     #Holt alle Zeilen, die das Ergebnis der SQL-Abfrage zurückgibt, und speichert sie in der Variable "daten"
     daten = cursor.fetchall()
@@ -49,7 +55,7 @@ def hole_alle_nutzer():
     connection.close()
     return daten #An den Aufrufer der Funktion zurück 
 
-def nutzer_speichern(email, passwort, name):
+def nutzer_speichern(email, passwort, name, abo):
     connection = sqlite3.connect("streaming.db") #Verbindung zur SQL-Datenbankdatei "streaming.db"
     cursor = connection.cursor() #Ein cursor Objekt wird erstellt um S"L- Befehle auszuführen
     cursor.execute("PRAGMA foreign_keys = ON;") #Es wird ein Fremdschlüssel-Unterstützung (Foreign Keys) in SQLite für diese Verbindung
@@ -57,8 +63,8 @@ def nutzer_speichern(email, passwort, name):
 
     #Neuen Nutzer in die Tabelle einfügen
     try:
-        #Führt den SQL-Befehl aus, um die übergebenen Daten sicher in die Tabelle "Nutzer" einzufügen
-        cursor.execute("INSERT INTO Nutzer (E_Mail, Passwort, Nutzername) VALUES (?, ?, ?);", (email, passwort, name))
+        # Führt den SQL-Befehl aus, um die übergebenen Daten sicher inklusive Abo in die Tabelle "Nutzer" einzufügen
+        cursor.execute("INSERT INTO Nutzer (E_Mail, Passwort, Nutzername, Abo) VALUES (?, ?, ?, ?);", (email, passwort, name, abo))
         connection.commit() #Speichert die Änderungen dauerhaft in der Datenbank ab
         messagebox.showinfo("Erfolg", "Nutzer wurde in der Datenbank gespeichert!")
 
@@ -66,19 +72,46 @@ def nutzer_speichern(email, passwort, name):
         #Wenn ein Fehler auftritt wie zum Beispiel dass die E-Mail schon existiert wird eine Fehlermeldung angezeigt
         messagebox.showerror("Fehler", "E-Mail existiert bereits oder Eingabe fehlerhaft!")
         
-    connection.close()#Schließt die Verbindung zu Datenbank 
-
-
-#2. GUI ENTWICKLUNG einfaches Tkinter-Fenster
- 
-
+    connection.close()#Schließt die Verbindung zu Datenbank
 
 #Hauptfenster erstellen
 app = tk.Tk() #Erstellt das Hauptfenster der Anwendung als Basis für alle GUI-Elemente
 app.title("Streaming Dienst - Datenbank Verwaltung") #Setzt den Titel des Hauptfensters, der ganz oben in der Leiste angezeigt wird
 app.geometry("400x450") #Legt die feste Startgröße des Fensters auf eine Breite von 400 und eine Höhe von 450 Pixeln fest
 
+datenbank_einrichten() 
 #FUNKTIONEN FÜR DIE BUTTONS 
+
+#Alte
+# def button_anzeigen_klick():
+#     #Liste leeren, bevor wir neue Daten anzeigen
+#     text_anzeige.delete("1.0", tk.END) #Löscht den gesamten aktuellen Text im Textfeld von der ersten Zeile bis zum Ende
+# 
+#     #Daten aus der Datenbank holen
+#     nutzer_liste = hole_alle_nutzer()
+# 
+#     #Mit einer einfachen Schleife in das Textfeld schreiben
+#     for nutzer in nutzer_liste: #Geht jede Zeile der zurückgegebenen Nutzerdaten einzeln durch
+#         text_anzeige.insert(tk.END, f"Name: {nutzer[0]} | E-Mail: {nutzer[1]}\n") #Fügt den Namen und die E-Mail des Nutzers formatiert am Ende des Textfelds hinzu
+# 
+# def button_speichern_klick():
+#     #Text aus den Eingabefeldern auslesen
+#     email = entry_email.get()
+#     passwort = entry_passwort.get()
+#     name = entry_name.get()
+# 
+#     #Prüfen, ob die Felder leer sind
+#     if email == "" or passwort == "" or name == "":
+#         messagebox.showwarning("Achtung", "Bitte alle Felder ausfüllen!") #Zeigt ein Warnungs-Pop-up an, falls eines der Pflichtfelder nicht ausgefüllt wurde
+# 
+#     else:
+#         #Funktion von oben aufrufen
+#         nutzer_speichern(email, passwort, name)
+# 
+#         # #Eingabefelder wieder leeren
+#         entry_email.delete(0, tk.END) #Löscht den Inhalt des E-Mail-Eingabefelds, damit es wieder frei ist
+#         entry_passwort.delete(0, tk.END) #Löscht den Inhalt des Passwort-Eingabefelds, damit es wieder frei ist
+#         entry_name.delete(0, tk.END) #Löscht den Inhalt des Namens-Eingabefelds, damit es wieder frei ist
 
 def button_anzeigen_klick():
     #Liste leeren, bevor wir neue Daten anzeigen
@@ -89,27 +122,29 @@ def button_anzeigen_klick():
 
     #Mit einer einfachen Schleife in das Textfeld schreiben
     for nutzer in nutzer_liste: #Geht jede Zeile der zurückgegebenen Nutzerdaten einzeln durch
-        text_anzeige.insert(tk.END, f"Name: {nutzer[0]} | E-Mail: {nutzer[1]}\n") #Fügt den Namen und die E-Mail des Nutzers formatiert am Ende des Textfelds hinzu
+        # Erweitert um die Anzeige des Abos
+        text_anzeige.insert(tk.END, f"Name: {nutzer[0]} | E-Mail: {nutzer[1]} | Abo: {nutzer[2]}\n") 
 
 def button_speichern_klick():
     #Text aus den Eingabefeldern auslesen
     email = entry_email.get()
     passwort = entry_passwort.get()
     name = entry_name.get()
+    abo = abo_auswahl.get() # NEU: Liest das ausgewählte Abonnement aus
 
     #Prüfen, ob die Felder leer sind
     if email == "" or passwort == "" or name == "":
         messagebox.showwarning("Achtung", "Bitte alle Felder ausfüllen!") #Zeigt ein Warnungs-Pop-up an, falls eines der Pflichtfelder nicht ausgefüllt wurde
 
     else:
-        #Funktion von oben aufrufen
-        nutzer_speichern(email, passwort, name)
+        #Funktion von oben aufrufen (jetzt mit abo)
+        nutzer_speichern(email, passwort, name, abo)
 
         # #Eingabefelder wieder leeren
         entry_email.delete(0, tk.END) #Löscht den Inhalt des E-Mail-Eingabefelds, damit es wieder frei ist
         entry_passwort.delete(0, tk.END) #Löscht den Inhalt des Passwort-Eingabefelds, damit es wieder frei ist
         entry_name.delete(0, tk.END) #Löscht den Inhalt des Namens-Eingabefelds, damit es wieder frei ist
-
+        abo_auswahl.set("Basis") # NEU: Setzt das Dropdown-Menü wieder auf den Standardwert zurück
 
 #GUI ELEMENTE Beschriftungen und Textfelder
         
@@ -134,6 +169,14 @@ label_name = tk.Label(app, text="Nutzername:") #Erstellt ein Label für die Nutz
 label_name.pack() #Platziert das Label im Fenster
 entry_name = tk.Entry(app, width=30) #Erstellt ein Eingabefeld für den Nutzernamen mit einer Breite von 30
 entry_name.pack(pady=2) #Platziert das Eingabefeld im Fenster mit kleinem Abstand
+#Eingabe: Abonnement-Auswahl (Dropdown-Menü)
+label_abo = tk.Label(app, text="Abonnement auswählen:") #Erstellt ein Label für die Abo-Beschriftung
+label_abo.pack()
+abo_auswahl = tk.StringVar(app) #Erstellt eine Tkinter-Variable für den ausgewählten Wert
+abo_auswahl.set("Basis") #Setzt den Standardwert des Menüs auf "Basis"
+optionen_abo = tk.OptionMenu(app, abo_auswahl, "Basis", "Standard", "Premium") #Erstellt das Dropdown-Menü
+optionen_abo.config(width=26) #Passt die Breite des Menüs an die Eingabefelder an
+optionen_abo.pack(pady=2)
 
 #Button zum Speichern
 btn_speichern = tk.Button(app, text="In Datenbank speichern", command=button_speichern_klick, bg="lightgreen")#Erstellt den Speicher-Button in hellgrün und verknüpft ihn mit der Klick-Funktion
